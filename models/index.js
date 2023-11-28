@@ -10,13 +10,12 @@ const User = mongoose.model('User',
   }, { timestamps: true })
 );
 
-const Level = mongoose.model('Level',
-  new mongoose.Schema({
-    title: { type: String, required: true, unique: true },
-    background: { type: String, required: true },
-    color: { type: String, required: true },
-  }, { timestamps: true })
-);
+const Level = mongoose.model('Level', new mongoose.Schema({
+  title: { type: String, required: true, unique: true },
+  background: { type: String, required: true },
+  color: { type: String, required: true },
+}, { timestamps: true }));
+
 
 const Topic = mongoose.model('Topic',
   new mongoose.Schema({
@@ -27,18 +26,23 @@ const Topic = mongoose.model('Topic',
 const Subtitle = mongoose.model('Subtitle',
   new mongoose.Schema({
     subtitle: { type: String, required: true },
+    topicId: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', required: true },
+    levelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Level', required: true },
   }, { timestamps: true })
 );
 
 const Question = mongoose.model('Question',
   new mongoose.Schema({
     question: { type: String, required: true },
+    subtitleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subtitle', required: true },
   }, { timestamps: true })
 );
 
 const Answer = mongoose.model('Answer',
   new mongoose.Schema({
     status: { type: Boolean, default: false },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
   }, { timestamps: true })
 );
 

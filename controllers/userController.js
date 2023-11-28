@@ -1,10 +1,10 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models/index');
+const { User } = require('../models/');
 
-const token = (id, email, role) => {
+const token = (id, role) => {
   return jwt.sign(
-    { id, email, role },
+    { id, role },
     process.env.SECRET_KEY,
     { expiresIn: '24h' }
   );
@@ -13,20 +13,46 @@ const token = (id, email, role) => {
 const registration = async(req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    const salt = await bcrypt.genSalt(10);
+    const usersCount = await User.countDocuments();
+    if (usersCount === 0) {
+      if (email === process.env.ADMIN_EMAIL) {
+        return res.status(500).json({
+          message: 'Этот email уже занят'
+        });
+      }
+      const adminUser = {
+        name: process.env.ADMIN_NAME,
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD,
+        role: 'ADMIN'
+      };
+      const hashAdminPassword = await bcrypt.hash(adminUser.password, salt);
+      const admin = await User.create({ ...adminUser, passwordHash: hashAdminPassword });
+
+      const hash = await bcrypt.hash(password, salt);
+      const doc = new User({
+        email, name, role, passwordHash: hash
+      });
+      const user = await doc.save();
+      const { passwordHash, ...userData } = user._doc;
+      return res.json({ userData, token: token(user._id, user.role) });
+    }
     const candidate = await User.findOne({ email });
     if (candidate) {
       return res.status(500).json({
         message: 'Пользователь с таким email уже существует'
       });
     }
-    const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
     const doc = new User({
       email, name, role, passwordHash: hash
     });
+
     const user = await doc.save();
     const { passwordHash, ...userData } = user._doc;
-    res.json({ userData, token: token(user._id) });
+    res.json({ userData, token: token(user._id, user.role) });
+
   } catch(err) {
     console.log(err);
     res.status(500).json({
@@ -51,7 +77,7 @@ const login = async(req, res) => {
       });
     }
     const { passwordHash, ...userData } = user._doc;
-    res.json({ userData, token: token(user._id) });
+    res.json({ userData, token: token(user._id, user.role) });
   } catch(err) {
     console.log(err);
     res.status(500).json({
@@ -60,7 +86,7 @@ const login = async(req, res) => {
   }
 };
 
-const getAllUsers = async(req, res) => {
+const getAll = async(req, res) => {
   try {
     const users = await User.find({ role: 'USER' }, { _id: 1, name: 1 }).sort({ name: 1 });
     return res.json(users);
@@ -71,7 +97,7 @@ const getAllUsers = async(req, res) => {
     });
   }
 };
-const getAllAdminUsers = async(req, res) => {
+const getAllRole = async(req, res) => {
   try {
     const { role } = req.params;
     const users = await User.find({ role }, { _id: 1, name: 1, role: 1 }).sort({ name: 1 });
@@ -84,10 +110,10 @@ const getAllAdminUsers = async(req, res) => {
   }
 };
 
-const getOneUser = async(req, res) => {
+const getOne = async(req, res) => {
   try {
     const { id } = req.params;
-    const users = await User.find({ id }, { _id: 1, name: 1, role: 1, email: 1 }).sort({ name: 1 });
+    const users = await User.find({ _id: id }, { _id: 1, name: 1, role: 1, email: 1 }).sort({ name: 1 });
     return res.json(users);
   } catch(err) {
     console.log(err);
@@ -101,7 +127,7 @@ const getOneUser = async(req, res) => {
 module.exports = {
   registration,
   login,
-  getAllUsers,
-  getAllAdminUsers,
-  getOneUser
+  getAll,
+  getAllRole,
+  getOne
 };
